@@ -5,7 +5,20 @@ class Input{
 	public $post;
 	public $in;///< get and post combined, with post overriding get
 
-	public $messages;///< message related to filtering and validating input
+	/**
+	With input, must consider that:
+	-	error message order may be desired
+	-	errors may be tied to field names
+	-	an error may be tied to multiple fields
+
+	As a consequence of these considerations, the following structure of the error hash is used:
+
+	[{message:<text message>, fields:[<field name>, ...]}, ...]
+
+	Additional fields may be added according to the functionality of the front end.
+	Additionally, the text message part my have replaceable text intended to be replaced by the humanized field names
+	*/
+	public $errors;
 
 	/**
 	sets get, post, and in
@@ -21,7 +34,7 @@ class Input{
 	function __construct($options=[]){
 		$options = array_merge(['handleJson'=>true, 'get'=>$_GET, 'post'=>$_POST], $options);
 		$this->get = (array)$options['get'];
-		$this->post = (array)$options['get'];
+		$this->post = (array)$options['post'];
 		if(isset($options['in'])){
 			$this->in = (array)$options['in'];
 		}else{
@@ -59,10 +72,10 @@ class Input{
 		$fields = (array)$fields;
 		$found = [];
 
-		foreach($this->messages as $message){
-			if($fields && !array_intersect($fields,$message['fields'])){
+		foreach($this->errors as $error){
+			if($fields && !array_intersect($fields,$error['fields'])){
 				continue;	}
-			$found[] = $message;	}
+			$found[] = $error;	}
 		return $found;
 	}
 
@@ -159,7 +172,7 @@ class Input{
 					$paramsAdditional = explode(';',$paramsAdditional);	}	}
 			///merge field value param with the user provided params
 			if($paramsAdditional){
-				\Grithin\Arrays::mergeInto($params,$paramsAdditional);	}
+				$params = array_merge($params,$paramsAdditional);	}
 			if(!$prefixOptions){
 				list($prefixOptions,$callback) = self::rulePrefixOptions($callback);	}
 			if($prefixOptions['continuity'] && $fieldError){
@@ -193,7 +206,7 @@ class Input{
 				if($prefixOptions['not']){
 					continue;
 				}
-				//add error to messages
+				//add error to $this->errors
 				if(!$prefixOptions['ignoreError']){
 					$fieldError = true;
 					$content = json_decode($e->getMessage(), true);

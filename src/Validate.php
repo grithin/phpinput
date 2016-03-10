@@ -166,10 +166,11 @@ class Validate{
 		}
 	}
 	static function range($value,$min=null,$max=null){
-		if($max !== '' && $max !== null && $value > $max){
+
+		if($max !== '' && $max !== null && $value > (int)$max){
 			Debug::toss(['type'=>'range_max', 'detail'=>$max],'InputException');
 		}
-		if($min !== '' && $min !== null && $value < $min){
+		if($min !== '' && $min !== null && $value < (int)$min){
 			Debug::toss(['type'=>'range_min', 'detail'=>$min],'InputException');
 		}
 	}
