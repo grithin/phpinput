@@ -10,25 +10,12 @@ use Grithin\Filter;
 class Validate{
 	function __construct($input){
 		$this->input = $input;
+		$this->db = $this->input->options['db'];
 	}
-	static $env = [];
-	static $db;
-	static function configure($env=[]){
-		$env = Arrays::merge([], $_ENV, $env);
-		if(!$env['db']){
-			if(class_exists('\Grithin\Db', false)){
-				$env['db'] = \Grithin\Db::primary();	}	}
-
-		self::$db = $env['db'];
-		self::$env = $env;
-	}
-
 	///template messages, but really, view concerns should be kept in the view
 	static $errorMessages = array(
 			'exists' => 'Missing field {_FIELD_}',
 			'filled' => 'Missing field {_FIELD_}',
-			'inTable' => 'No record of {_FIELD_} found',
-			'notInTable' => 'A record of {_FIELD_} already present',
 			'isInteger' => '{_FIELD_} must be an integer',
 			'isFloat' => '{_FIELD_} must be a decimal',
 			'regex' => '{_FIELD_} must match %s',
@@ -85,16 +72,6 @@ class Validate{
 	static function filled(&$value){
 		if(!isset($value) || $value === ''){
 			Debug::toss(['type'=>'filled'],'InputException');
-		}
-	}
-	static function inTable(&$value,$table,$field='id'){
-		if(!self::$db->check($table,array($field=>$value))){
-			Debug::toss(['type'=>'inTable'],'InputException');
-		}
-	}
-	static function notInTable(&$value,$table,$field='id'){
-		if(self::$db->check($table,array($field=>$value))){
-			Debug::toss(['type'=>'notInTable'],'InputException');
 		}
 	}
 	static function isInteger(&$value){
@@ -237,11 +214,11 @@ class Validate{
 		$csrfToken = $_SESSION['csrfToken'];
 		unset($_SESSION['csrfToken']);
 		if(!$csrfToken){
-			\Debug::toss(['type'=>'no_csrf'],'InputException');
+			Debug::toss(['type'=>'no_csrf'],'InputException');
 		}elseif(!$value){
-			\Debug::toss(['type'=>'missing_csrf'],'InputException');
+			Debug::toss(['type'=>'missing_csrf'],'InputException');
 		}elseif($value != $csrfToken){
-			\Debug::toss(['type'=>'csrf_mismatch'],'InputException');
+			Debug::toss(['type'=>'csrf_mismatch'],'InputException');
 		}
 	}
 	///matches value against (string)callable return value
@@ -301,6 +278,18 @@ class Validate{
 			Debug::toss(['type'=>'phone_check'],'InputException');
 		}
 	}
+	static function international_phone(&$value){
+		Filter::digits($value,'digits');
+		self::filled($value);
+
+		if(strlen($value) < 11){
+			Debug::toss(['type'=>'phone_international'],'InputException');
+		}
+		if(strlen($value) > 14){
+			Debug::toss(['type'=>'phone_international__over'],'InputException');
+		}
+	}
+
 
 	static function age($value,$min=null,$max=null){
 		$time = new Time($value);
@@ -338,12 +327,22 @@ class Validate{
 		}
 	}
 
-	//++ functions relying on Control:: {
+	function db_in_table(&$value,$table,$field='id'){
+		if(!$this->db->check($table,array($field=>$value))){
+			Debug::toss(['type'=>'inTable'],'InputException');
+		}
+	}
+	function db_not_in_table(&$value,$table,$field='id'){
+		if($this->db->check($table,array($field=>$value))){
+			Debug::toss(['type'=>'notInTable'],'InputException');
+		}
+	}
+
 
 	///check if create/update will collide with existing row using $control->id and $control->in
 	///@note assumes primary control
 	function checkUniqueKeys($value, $table,$type,$id=null){
-		$indices = self::$db->indices($table);
+		$indices = $this->db->indices($table);
 		foreach($indices as $name => $key){
 			if($key['unique']){
 				if($name != 'PRIMARY'){
@@ -357,13 +356,11 @@ class Validate{
 					if($type != 'create' && $id){
 						$where['id?<>'] = $id;
 					}
-					if(self::$db->check($table,$where)){
+					if($this->db->check($table,$where)){
 						Debug::toss(['type'=>'record_not_unique','detail'=>$key['columns']],'InputException');
 					}
 				}
 			}
 		}
 	}
-
-	//++ }
 }

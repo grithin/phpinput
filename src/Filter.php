@@ -196,14 +196,20 @@ class Filter{
 	function rekey($value,$key){
 		$this->input->in[$key] = $value;
 	}
-	///unsets a field if missing from the fields array
-	function unsetMissing($value, $key){
+	///unsets given keyed field if value is missing
+	function unsetOnMissing($value, $key=''){
 		if($value === null || $value === ''){
+			$key = $key ? $key : $this->input->currentField;
 			unset($this->input->in[$key]);	}
 	}
 	///removes a field
-	function remove($value, $key){
-		unset($this->input->in[$key]);	}
+	function remove(&$value){
+		$value = null;
+		unset($this->input->in[$this->input->currentField]);	}
+	///blanks a field
+	function blank(&$value){
+		$value = '';
+	}
 	///turns the fields into strings
 	function toStrings(){
 		foreach($this->input->in as $k=>&$v){

@@ -18,7 +18,7 @@ class Input{
 	Additional fields may be added according to the functionality of the front end.
 	Additionally, the text message part my have replaceable text intended to be replaced by the humanized field names
 	*/
-	public $errors;
+	public $errors = [];
 
 	/**
 	sets get, post, and in
@@ -27,40 +27,46 @@ class Input{
 		get:<optional GET array, defaults to $_GET>
 		post:<optional POST array, defaults to $_POST>
 		in:<optional array of the input that is used, defaults to merged get and post>
-		validate:<optional validate class instance>
-		filter:<optional filter class instance>
+		special_json: < whether to look for, and parse "_json" key >
+		db: < optional, used for validation, model >
 	@note special handling for _json key -> it is parsedd and merged into the array
 	*/
 	function __construct($options=[]){
-		$options = array_merge(['handleJson'=>true, 'get'=>$_GET, 'post'=>$_POST], $options);
+		# handle json post
+		if(!isset($options['post'])){
+			if(!$_POST && substr($_SERVER['CONTENT_TYPE'],0,16) == 'application/json'){
+				$_POST = json_decode(file_get_contents('php://input'),true);
+			}
+		}
+
+		$this->options = $options = array_merge(['special_json'=>false, 'get'=>$_GET, 'post'=>$_POST], $options);
 		$this->get = (array)$options['get'];
 		$this->post = (array)$options['post'];
+		# if there was no post, check for json data
+
 		if(isset($options['in'])){
 			$this->in = (array)$options['in'];
 		}else{
 			$this->in = array_merge($this->get, $this->post);	}
 
-		$this->filter = $options['filter'] ? $options['filter'] : new \Grithin\Filter($this);
-		$this->validate = $options['validate'] ? $options['validate'] : new \Grithin\Validate($this);
-	}
-	///handles various ways of posting JSON to the page, and maps them to GET and POST arrays
-	/**
-	handles a content_type of "application/json", or a '_json' key
-	*/
-	static function parseJson(){
-		if($_GET['_json']){
-			$_GET = \Grithin\Arrays::merge($_GET, json_decode((string)$_GET['_json'],true));	}
-		if(substr($_SERVER['CONTENT_TYPE'],0,16) == 'application/json'){
-			$_POST = json_decode(file_get_contents('php://input'),true);	}
-		if($_POST['_json']){
-			$_POST = \Grithin\Arrays::merge($_POST, json_decode((string)$_POST['_json'],true));	}
+		if($options['special_json'] && $this->in['_json']){
+			$this->in['_json'] = \Grithin\Arrays::merge($this->in['_json'], json_decode((string)$this->in['_json'],true));
+		}
+
+		$this->filter = new \Grithin\Filter($this);
+		$this->validate = new \Grithin\Validate($this);
+		$this->model = new \Grithin\Input\Model($this);
 	}
 
 	///adds message of type error.  See self::message
 	function error($details,$fields){
+		if(!$details){ # discard empty errors
+			return;
+		}
+
 		$error = ['fields'=>(array)$fields];
 		if(is_array($details)){
-			$error = array_merge($details,$error);
+			$error = array_merge($error, $details);
 		}else{
 			$error['message'] = $details;	}
 
@@ -84,7 +90,7 @@ class Input{
 		$this->localInstances[$name] = $instance;
 	}
 
-	public $validatedFields;///< {field:[validation, ...], ...}  Validations passed on each field.  Reset on each validate call
+
 	/**
 	@param	rules	string or array
 		Rules is an array of rules whos keys map the keys of the input
@@ -125,8 +131,6 @@ class Input{
 	@return	false if error, else true
 	*/
 	function handle($rules){
-		$this->validatedFields = [];
-
 		foreach($rules as $field=>$steps){
 			unset($fieldValue, $byReference);
 			$fieldValue = null;
@@ -199,7 +203,7 @@ class Input{
 
 				if($prefixOptions['not']){
 					$prefixOptions['not'] = false;
-					\Grithin\Debug::toss('{_FIELD_} Failed to fail a notted rule: '.var_export($rule,true),'InputException');
+					\Grithin\Debug::toss(['type'=>'not_rule_failure', 'detail'=>$rule],'InputException');
 				}
 			}catch(\InputException $e){
 				//this is considered a pass
@@ -222,20 +226,9 @@ class Input{
 					break;
 				}
 			}
-			$this->validatedFields[$field][] = $callback;
 		}
 		return ['hasError'=>$fieldError];
 	}
-	///check if a field has been valiated with a certain validation.
-	/**
-	@param	validation	the non-shortened validation callback form
-	*/
-	function fieldValidated($field,$validation){
-		$validations = $this->validatedFields[$field];
-		if($validations){
-			foreach($validations as $v){
-				if($v == $validation){
-					return true;	}	}	}	}
 	function ruleCallable($callback){
 		if(is_string($callback)){
 			list($type,$method) = explode('.',$callback,2);
@@ -266,7 +259,7 @@ class Input{
 			break;
 			case 'g':
 			case 'global':
-				$method;
+				return $method;
 			break;
 			default:
 				if($type){
@@ -307,5 +300,18 @@ class Input{
 			}
 		}
 		return  [$options,substr($string,$i)];
+	}
+
+	# add a rule to a rule set (which could be an array or a string)
+	# @TODO	rule manipulation functions (add prefix rule, add affix rule, rules to array)
+	static function affixWithRule($rule, $rules = []){
+		$rules = \Grithin\Arrays::toArray($rules);
+		$rules[] = $rule;
+		return $rules;
+	}
+	static function prefixWithRule($rule, $rules = []){
+		$rules = \Grithin\Arrays::toArray($rules);
+		array_unshift($rules,$rule);
+		return $rules;
 	}
 }
