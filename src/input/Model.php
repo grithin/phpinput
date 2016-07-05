@@ -11,10 +11,18 @@ class Model{
 			not_filter_time:	< whether to filter time >,
 		}
 	*/
-	function __construct($input, $options=[]){
-		$this->db = $input->options['db'];
-		$this->tables = (array)$options['tables'];
-		$this->default_table = $options['table'];
+	function __construct($options){
+		if($options['input']){
+			$this->input = $options['input'];
+		}
+		if($options['db']){
+			$this->db = $options['db'];
+		}elseif($this->input && $this->input->db){
+			$this->db = $this->input->db;
+		}
+		if($options['table']){
+			$this->default_table = $options['table'];
+		}
 	}
 	function table_info($table_name=''){
 		$table_name = $table_name ? $table_name : $this->default_table;
@@ -66,6 +74,9 @@ class Model{
 
 	function create_specific($table_name=''){
 		$table_name = $table_name ? $table_name : $this->default_table;
+		if(!$table_name){
+			throw new \Exception('no table name');
+		}
 
 		$validaters	= [];
 		$table_info = $this->table_info($table_name);

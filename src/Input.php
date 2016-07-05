@@ -1,5 +1,6 @@
 <?
 namespace Grithin;
+use \Grithin\Debug;
 class Input{
 	public $get;
 	public $post;
@@ -52,14 +53,17 @@ class Input{
 		if($options['special_json'] && $this->in['_json']){
 			$this->in['_json'] = \Grithin\Arrays::merge($this->in['_json'], json_decode((string)$this->in['_json'],true));
 		}
+		if($options['db']){
+			$this->db = $options['db'];
+		}
 
 		$this->filter = new \Grithin\Filter($this);
 		$this->validate = new \Grithin\Validate($this);
-		$this->model = new \Grithin\Input\Model($this);
+		$this->model = new \Grithin\Input\Model(['input'=>$this]);
 	}
 
 	///adds message of type error.  See self::message
-	function error($details,$fields){
+	function error($details,$fields=[]){
 		if(!$details){ # discard empty errors
 			return;
 		}
@@ -172,7 +176,7 @@ class Input{
 			}else{
 				list($callback,$paramsAdditional) = explode('|',$rule);
 
-				if($paramsAdditional){
+				if($paramsAdditional !== null){
 					$paramsAdditional = explode(';',$paramsAdditional);	}	}
 			///merge field value param with the user provided params
 			if($paramsAdditional){

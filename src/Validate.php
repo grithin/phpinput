@@ -142,15 +142,41 @@ class Validate{
 			Debug::toss(['type'=>'url'],'InputException');
 		}
 	}
-	static function range($value,$min=null,$max=null){
+#++ Numbers {
 
-		if($max !== '' && $max !== null && $value > (int)$max){
+	static function range($value,$min=null,$max=null){
+		if($max !== '' && $max !== null && (float)$value > (float)$max){
 			Debug::toss(['type'=>'range_max', 'detail'=>$max],'InputException');
 		}
-		if($min !== '' && $min !== null && $value < (int)$min){
+		if($min !== '' && $min !== null && (float)$value < (float)$min){
 			Debug::toss(['type'=>'range_min', 'detail'=>$min],'InputException');
 		}
 	}
+	static function min($value, $min){
+		if((float)$value < (float)$min){
+			Debug::toss(['type'=>'range_min', 'detail'=>$min],'InputException');
+		}
+	}
+	static function max($value, $max){
+		if((float)$value > (float)$max){
+			Debug::toss(['type'=>'range_max', 'detail'=>$max],'InputException');
+		}
+	}
+	static function gt($value, $min){
+		if((float)$value <= (float)$min){
+			Debug::toss(['type'=>'range_min', 'detail'=>$min],'InputException');
+		}
+	}
+	# must be less than
+	static function lt($value, $max){
+		if((float)$value >= (float)$max){
+			Debug::toss(['type'=>'range_max', 'detail'=>$max],'InputException');
+		}
+	}
+
+#++ }
+
+
 	static function length($value,$length){
 		$actualLength = strlen($value);
 		if($actualLength != $length){
@@ -179,6 +205,16 @@ class Validate{
 			new Time($value);
 		}catch(\Exception $e){
 			Debug::toss(['type'=>'date'],'InputException');
+		}
+	}
+	static function dateBefore($value, $before){
+		if(new Time($before) > $value){
+			Debug::toss(['type'=>'date before'],'InputException');
+		}
+	}
+	static function dateAfter($value, $after){
+		if(new Time($before) < $value){
+			Debug::toss(['type'=>'date after'],'InputException');
 		}
 	}
 	/**
@@ -212,13 +248,22 @@ class Validate{
 //+	}
 	static function csrf($value){
 		$csrfToken = $_SESSION['csrfToken'];
-		unset($_SESSION['csrfToken']);
 		if(!$csrfToken){
 			Debug::toss(['type'=>'no_csrf'],'InputException');
 		}elseif(!$value){
 			Debug::toss(['type'=>'missing_csrf'],'InputException');
-		}elseif($value != $csrfToken){
-			Debug::toss(['type'=>'csrf_mismatch'],'InputException');
+		}else{
+			if(is_array($csrfToken)){ # allow for multiple csrf tokens
+				if(!in_array($value, $csrfToken)){
+					Debug::toss(['type'=>'csrf_mismatch'],'InputException');
+				}else{
+					unset($_SESSION['csrfToken'][array_search($value, $csrfToken)]);
+				}
+			}elseif($value != $csrfToken){
+				Debug::toss(['type'=>'csrf_mismatch'],'InputException');
+			}else{
+				unset($_SESSION['csrfToken']);
+			}
 		}
 	}
 	///matches value against (string)callable return value

@@ -54,6 +54,9 @@ class Filter{
 	static function decimal(&$value){
 		return $value = (float)$value;
 	}
+	static function toFloat(&$value){
+		return $value = (float)$value;
+	}
 	///filter all but digits
 	static function digits(&$value){
 		return $value = preg_replace('@[^0-9]@','',$value);

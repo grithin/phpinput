@@ -30,11 +30,11 @@ Notice, as a string, parameters are separated with ";"
 
 
 The prefix can be some combination of the following
--	"!" to break on error with no more rules for that field should be applied
--	"!!" to break on error with no more rules for any field should be applied
+-	"!" to break on error with no more rules for that field
+-	"!!" to break on error with no more rules for any field
 -	"?" to indicate the validation is optional, and not to throw an error (useful when combined with '!' => '?!v.filled,email')
 -	"~" to indicate if the validation does not fail, then there was an error
--	"&" to indicate code should break if there were any previous errors on that field
+-	"&" to indicate code should break if there were any previous errors on that field.  This moves around the responsibility of ending on error, which is sometimes desirable with prefixed validations : `prefixed_validation.concat ['&validation2',...]`
 -	"&&" to indicate code should break if there were any previous errors on any field in the validate run
 
 The handler can be one of the following
